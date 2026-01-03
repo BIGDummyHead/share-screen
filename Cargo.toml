@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1.49.0", features = ["full"] }
-async-web = { path = "../async-web" }
-enc-video = { path = "../enc-video" }
+async-web = { git = "https://github.com/BIGDummyHead/async-web.git" }
+enc-video = { git = "https://github.com/BIGDummyHead/enc-video.git" }
 futures = "0.3.31"
 tokio-stream = "0.1.17"
 async-stream = "0.3.6"

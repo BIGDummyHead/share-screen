@@ -89,6 +89,7 @@ dependencies = [
 [[package]]
 name = "async-web"
 version = "0.1.0"
+source = "git+https://github.com/BIGDummyHead/async-web.git#325f23dc70f156c7a6d5a8bed198e1ca586d84c0"
 dependencies = [
  "futures",
  "serde",
@@ -278,6 +279,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 [[package]]
 name = "enc-video"
 version = "0.1.0"
+source = "git+https://github.com/BIGDummyHead/enc-video.git#381e4b21b63d399e53de0dce5a14a78a51cf1810"
 dependencies = [
  "tokio",
  "windows",
