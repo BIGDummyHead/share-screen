@@ -2,6 +2,7 @@ pub mod capture_helper;
 pub mod streamed_resolution;
 
 use std::sync::Arc;
+use tokio::sync::broadcast;
 
 use async_web::web::{
     App,
@@ -24,8 +25,11 @@ use tokio::{
 };
 use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx};
 
-use crate::capture_helper::{CaptureType, SerializedDeviceSize};
 use crate::streamed_resolution::StreamedResolution;
+use crate::{
+    capture_helper::{CaptureType, SerializedDeviceSize},
+    streamed_resolution::compress_frame,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,19 +41,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let dimensions = Arc::new(capture.get_dimensions()?);
 
-    //conversion sender/receiver of u8 bytes to u32
-    let (tx, rx) = mpsc::channel::<Vec<u8>>(2);
+    let buffer = 2;
 
-    let rx = Arc::new(Mutex::new(rx));
+    //let (compressed_sender,  compressed_receiver) = mpsc::channel::<Vec<u8>>(buffer);
+    //let compressed_receiver_ref = Arc::new(Mutex::new(compressed_receiver));
 
+    let (compressed_sender, _) = broadcast::channel::<Vec<u8>>(100);
+
+    let compressed_sender_clone = Arc::new(compressed_sender);
+
+
+
+    //start receiving uncompressed data
     start_capturing(capture.clone());
-    start_receiving(capture.clone(), tx.clone());
+    start_receiving(capture.clone(), compressed_sender_clone.clone());
 
     println!("Components initialized\nStarting web server...");
 
     //create the web app for sending data...
-    let mut app = App::bind(100, "10.0.0.83:5074").await?;
-    init_app(&mut app, rx.clone(), dimensions.clone()).await;
+    let mut app = App::bind(100, "10.0.0.104:5074").await?;
+
+    init_app(&mut app, compressed_sender_clone.clone(), dimensions.clone()).await;
     let server_thread = app.start().await;
 
     println!("Server started");
@@ -62,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //add routing and start the process of sharing data...
 async fn init_app(
     app: &mut App,
-    rx: Arc<Mutex<Receiver<Vec<u8>>>>,
+    broad_tx: Arc<broadcast::Sender<Vec<u8>>>,
     dimensions: Arc<enc_video::devices::DeviceSize>,
 ) -> () {
     //home page for serving the streamables
@@ -98,7 +110,6 @@ async fn init_app(
     )
     .await;
 
-    let dimensions_clone = dimensions.clone();
     //streamed POST for the content of the device
     app.add_or_panic(
         "/stream",
@@ -106,14 +117,14 @@ async fn init_app(
         None,
         Arc::new(move |_| {
 
-            let dimensions = dimensions_clone.clone();
-
-            let rx = rx.clone();
+            let tx = broad_tx.clone();
 
             Box::pin(async move {
                 println!("Creating new resolution stream");
 
-                let resolution = StreamedResolution::new(rx, dimensions);
+                let rx = tx.subscribe();
+
+                let resolution = StreamedResolution::new(rx);
 
                 resolution
             })
@@ -134,11 +145,14 @@ fn start_capturing(capture: Arc<dyn ICapture<CaptureOutput = Vec<u8>>>) -> JoinH
 
 fn start_receiving(
     capture: Arc<dyn ICapture<CaptureOutput = Vec<u8>>>,
-    tx: Sender<Vec<u8>>,
+    tx: Arc<broadcast::Sender<Vec<u8>>>,
 ) -> JoinHandle<()> {
     let rx = capture.clone_receiver();
+    let dimensions = capture.get_dimensions().expect("Could not get dimensions.");
+
 
     let handle = tokio::spawn(async move {
+
         loop {
             let data = {
                 let mut guard = rx.lock().await;
@@ -149,14 +163,47 @@ fn start_receiving(
                 break; //done receiving data
             }
 
-            let data = data.unwrap();
+            let raw_data = data.unwrap();
 
-            let _ = tx.try_send(data);
+            let (width, height) = (dimensions.width, dimensions.height);
+
+            let compressed =
+                tokio::task::spawn_blocking(move || compress_frame(raw_data, width, height))
+                    .await
+                    .unwrap_or_default();
+
+            if !compressed.is_empty() {
+                let len = compressed.len() as u32;
+
+                // Create a single packet: [4 bytes length] + [JPEG bytes]
+                let mut packet = Vec::with_capacity(4 + compressed.len());
+                packet.extend_from_slice(&len.to_le_bytes()); // Little Endian length
+                packet.extend_from_slice(&compressed);
+
+                //send the compressed data
+                let _ = tx.send(packet);
+
+            }
+
         }
     });
 
     handle
 }
+
+/*
+
+let compressed_tx_clone = compressed_tx.clone();
+    let compressed_rx = Arc::new(Mutex::new(compressed_rx));
+    let dimensions_clone = dimensions.clone();
+    tokio::spawn(async move {
+        loop {
+
+
+        }
+    });
+
+ */
 
 fn initialize_capture(
     capture_type: CaptureType,

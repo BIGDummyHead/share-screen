@@ -1,23 +1,18 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use async_stream::stream;
 use async_web::web::{Resolution, resolution::get_status_header};
-use enc_video::devices::DeviceSize;
 use image::{ColorType, ImageEncoder, codecs::jpeg::JpegEncoder};
-use tokio::sync::{Mutex, mpsc::Receiver};
+use tokio::sync::{Mutex, broadcast::Receiver};
 
 pub struct StreamedResolution {
-    rx: Arc<Mutex<Receiver<Vec<u8>>>>,
-    dimensions: Arc<DeviceSize>,
+    rx:  Arc<Mutex< Receiver<Vec<u8>>>>,
 }
 
 impl StreamedResolution {
     /// create a new streamed resolution from a receiver.
-    pub fn new(
-        rx: Arc<Mutex<Receiver<Vec<u8>>>>,
-        dimensions: Arc<DeviceSize>,
-    ) -> Box<dyn Resolution + Send> {
-        let res = Self { rx, dimensions };
+    pub fn new(rx: Receiver<Vec<u8>>) -> Box<dyn Resolution + Send> {
+        let res = Self { rx: Arc::new(Mutex::new(rx)) };
 
         Box::new(res)
     }
@@ -30,36 +25,23 @@ impl Resolution for StreamedResolution {
 
     fn get_content(&self) -> std::pin::Pin<Box<dyn futures::Stream<Item = Vec<u8>> + Send>> {
         let rx = self.rx.clone();
-        let dimensions = self.dimensions.clone();
 
         let content_stream = stream! {
             loop {
-                let data: Option<Vec<u8>> = {
-                    let mut rx = rx.lock().await;
-                    rx.recv().await
+                
+                let data = {
+                    let mut guard = rx.lock().await;
+                    guard.recv().await
                 };
 
-                if data.is_none() {
-                    break;
+                if data.is_err() {
+                    continue;
                 }
 
-               let raw_data = data.unwrap();
-               let (width, height) = (dimensions.width, dimensions.height);
+                let data = data.unwrap();
 
-                let compressed = tokio::task::spawn_blocking(move || {
-                    compress_frame(raw_data, width, height)
-                }).await.unwrap_or_default();
+                yield data;
 
-                if !compressed.is_empty() {
-                    let len = compressed.len() as u32;
-
-                    // Create a single packet: [4 bytes length] + [JPEG bytes]
-                    let mut packet = Vec::with_capacity(4 + compressed.len());
-                    packet.extend_from_slice(&len.to_le_bytes()); // Little Endian length
-                    packet.extend_from_slice(&compressed);
-
-                    yield packet;
-                }
             }
         };
 
@@ -69,7 +51,7 @@ impl Resolution for StreamedResolution {
 
 use rayon::prelude::*; // Import Rayon traits
 
-fn compress_frame(raw_bgra: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
+pub fn compress_frame(raw_bgra: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
     let mut compressed = Vec::new();
 
     let expected_len = (width * height * 4) as usize;
@@ -82,7 +64,8 @@ fn compress_frame(raw_bgra: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
 
     // 2. Parallel BGRA -> RGB Conversion (The FPS Fix)
     // We process 4-byte chunks of input (BGRA) and 3-byte chunks of output (RGB) in parallel
-    rgb_data.par_chunks_exact_mut(3)
+    rgb_data
+        .par_chunks_exact_mut(3)
         .zip(raw_bgra.par_chunks_exact(4))
         .for_each(|(rgb, bgra)| {
             rgb[0] = bgra[2]; // R
@@ -92,7 +75,7 @@ fn compress_frame(raw_bgra: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
 
     // 3. Encode
     // Setting quality to 60-70 is usually a sweet spot for streaming speed vs quality
-    let encoder = JpegEncoder::new_with_quality(&mut compressed, 70);
+    let encoder = JpegEncoder::new_with_quality(&mut compressed, 25);
 
     match encoder.write_image(&rgb_data, width, height, ColorType::Rgb8.into()) {
         Ok(_) => {}
