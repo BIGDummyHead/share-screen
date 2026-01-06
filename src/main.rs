@@ -47,8 +47,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Components initialized\nStarting web server...");
 
+    let host_address = local_ip_address::local_ip()?;
+
+    let server_socket = format!("{host_address:?}:80");
+
+    println!("Now hosting on http://{server_socket}");
+
     //create the web app for sending data...
-    let mut app = App::bind(100, "10.0.0.83:5074").await?;
+    let mut app = App::bind(100, &server_socket).await?;
 
     init_app(
         &mut app,
@@ -113,8 +119,6 @@ async fn init_app(
             let tx = broad_tx.clone();
 
             Box::pin(async move {
-                println!("Creating new resolution stream");
-
                 let rx = tx.subscribe();
 
                 let resolution = StreamedResolution::new(rx);

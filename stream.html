@@ -5,49 +5,75 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rust Video Stream</title>
+
     <style>
+        /* =====================
+   Apple-Style Glass UI
+   ===================== */
+
         :root {
-            --bg-color: #09090b;
-            --surface-color: #18181b;
-            --border-color: #27272a;
-            --accent-color: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.5);
-            --text-primary: #f4f4f5;
-            --text-secondary: #a1a1aa;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.18);
+            --glass-highlight: rgba(255, 255, 255, 0.35);
+
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+
+            --accent-1: #7c7cff;
+            --accent-2: #00f5d4;
+            --accent-3: #ff7ad9;
         }
 
+        /* =====================
+   Background
+   ===================== */
         body {
             margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             height: 100vh;
+            background:
+                radial-gradient(1200px at 10% 10%, #7c7cff33, transparent),
+                radial-gradient(1000px at 90% 30%, #00f5d433, transparent),
+                radial-gradient(900px at 50% 90%, #ff7ad933, transparent),
+                #050507;
+
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+            color: var(--text-primary);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
             overflow: hidden;
         }
 
-        /* The Main Container */
+        /* =====================
+   Viewer Container
+   ===================== */
         .viewer-container {
             position: relative;
             width: 90%;
-            max-width: 1280px;
-            aspect-ratio: 16/9;
-            background: #000;
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            max-width: 1300px;
+            aspect-ratio: 16 / 9;
+
+            background: linear-gradient(180deg,
+                    rgba(255, 255, 255, 0.12),
+                    rgba(255, 255, 255, 0.02));
+
+            backdrop-filter: blur(28px) saturate(160%);
+            -webkit-backdrop-filter: blur(28px) saturate(160%);
+
+            border-radius: 22px;
+            border: 1px solid var(--glass-border);
+
+            box-shadow:
+                0 40px 80px rgba(0, 0, 0, 0.65),
+                inset 0 1px 0 var(--glass-highlight);
+
             overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: width 0.3s ease, height 0.3s ease;
+            transition: all 0.4s ease;
         }
 
-        /* Fullscreen Native Behavior */
+        /* Fullscreen */
         .viewer-container:fullscreen {
             width: 100vw;
             height: 100vh;
@@ -56,152 +82,209 @@
             border: none;
         }
 
-        /* Auto-hide class for Fullscreen */
-        .viewer-container.user-inactive {
-            cursor: none;
-        }
-
-        /* The Canvas */
+        /* =====================
+   Canvas
+   ===================== */
         canvas {
-            display: block;
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            display: block;
         }
 
-        /* Placeholder / Loading State */
+        /* =====================
+   Placeholder
+   ===================== */
         .placeholder {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
+
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at center, #1e1e24 0%, #000000 100%);
-            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
-            z-index: 2;
-            transition: opacity 0.5s ease, visibility 0.5s;
+
+            background:
+                radial-gradient(circle at center,
+                    rgba(255, 255, 255, 0.15),
+                    rgba(0, 0, 0, 0.85));
+
+            backdrop-filter: blur(20px);
+            z-index: 5;
+            transition: opacity 0.5s ease;
         }
 
         .placeholder.hidden {
             opacity: 0;
             pointer-events: none;
-            visibility: hidden;
         }
 
-        /* Controls Bar */
+        /* =====================
+   Primary Button
+   ===================== */
+        button {
+            font-family: inherit;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button.primary {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            padding: 14px 34px;
+            font-size: 1rem;
+            font-weight: 600;
+
+            background: linear-gradient(135deg,
+                    var(--accent-1),
+                    var(--accent-2));
+
+            border-radius: 999px;
+
+            box-shadow:
+                0 10px 40px rgba(124, 124, 255, 0.45),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
+
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        button.primary:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow:
+                0 16px 60px rgba(124, 124, 255, 0.65);
+        }
+
+        /* =====================
+   Controls (Glass Pill)
+   ===================== */
         .controls {
             position: absolute;
-            bottom: 24px;
+            bottom: 28px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(24, 24, 27, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            padding: 8px 16px;
-            border-radius: 999px;
+
             display: flex;
-            gap: 12px;
+            gap: 14px;
             align-items: center;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            z-index: 10;
+
+            padding: 10px 18px;
+
+            background: var(--glass-bg);
+            backdrop-filter: blur(22px) saturate(180%);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+
+            border-radius: 999px;
+            border: 1px solid var(--glass-border);
+
+            box-shadow:
+                0 8px 30px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 var(--glass-highlight);
+
             opacity: 0;
-            transition: opacity 0.4s ease, transform 0.4s ease;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            transition: opacity 0.4s ease;
         }
 
-        /* Show controls on hover normally, OR if active in FS */
-        .viewer-container:hover .controls,
-        .viewer-container:not(.user-inactive) .controls {
+        .viewer-container:hover .controls {
             opacity: 1;
         }
 
-        .viewer-container.user-inactive .controls,
-        .viewer-container.user-inactive .telemetry {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        /* Buttons */
-        button {
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 10px;
+        /* Control buttons */
+        .controls button {
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
-            color: var(--text-primary);
-            transition: all 0.2s ease;
+            background: transparent;
+            color: white;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        button:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: scale(1.05);
+        .controls button:hover {
+            background: rgba(255, 255, 255, 0.12);
         }
 
-        button.primary {
-            background: var(--accent-color);
-            padding: 12px 32px;
-            border-radius: 99px;
-            font-weight: 600;
-            font-size: 1rem;
-            box-shadow: 0 0 20px var(--accent-glow);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        /* Icons */
-        svg {
-            width: 22px;
-            height: 22px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        /* Telemetry (FPS, Status) */
+        /* =====================
+   Telemetry Badges
+   ===================== */
         .telemetry {
             position: absolute;
             top: 24px;
             left: 24px;
             display: flex;
             gap: 12px;
-            z-index: 10;
-            transition: opacity 0.4s ease;
         }
 
         .badge {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            border: 1px solid rgba(255, 255, 255, 0.08);
             display: flex;
             align-items: center;
             gap: 8px;
-            color: var(--text-primary);
+
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+
+            background: var(--glass-bg);
+            backdrop-filter: blur(18px);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+
+            box-shadow:
+                inset 0 1px 0 var(--glass-highlight),
+                0 6px 20px rgba(0, 0, 0, 0.4);
         }
 
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 9px;
+            height: 9px;
             border-radius: 50%;
-            background-color: #ef4444;
+            background: #ff4d4d;
         }
 
         .status-dot.live {
-            background-color: #22c55e;
-            box-shadow: 0 0 12px #22c55e;
+            background: #00f5a0;
+            box-shadow: 0 0 14px #00f5a0;
+        }
+
+        /* =====================
+   SVG Icons
+   ===================== */
+        svg {
+            width: 22px;
+            height: 22px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+        }
+
+        /* =========================
+   iOS / Mobile Fullscreen
+   ========================= */
+
+        .viewer-container.mobile-fs {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100dvh !important;
+            /* iOS-safe */
+            max-width: none !important;
+            aspect-ratio: auto !important;
+            border-radius: 0 !important;
+            border: none !important;
+            z-index: 9999;
+        }
+
+        /* Prevent page scrolling when fullscreen */
+        body.mobile-fs {
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        @media (hover: none) {
+            .controls {
+                opacity: 1 !important;
+            }
         }
     </style>
 </head>
@@ -223,202 +306,276 @@
 
         <div class="placeholder" id="placeholder">
             <button class="primary" id="startBtn">
-                <svg viewBox="0 0 24 24" style="margin-right:8px; fill: currentColor; stroke:none;">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                WATCH
+                <svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none">
+                    <polygon points="5 3 19 12 5 21"></polygon>
                 </svg>
-                START STREAM
             </button>
         </div>
 
         <div class="controls" id="controls">
-            <button id="stopBtn" title="Stop Stream">
+            <button id="stopBtn">
                 <svg viewBox="0 0 24 24">
                     <rect x="6" y="4" width="4" height="16"></rect>
                     <rect x="14" y="4" width="4" height="16"></rect>
                 </svg>
             </button>
 
-            <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
-
-            <button id="fsBtn" title="Toggle Fullscreen">
-                <svg id="fsIcon" viewBox="0 0 24 24">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            <button id="fsBtn">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
                 </svg>
             </button>
         </div>
     </div>
 
     <script>
-        const container = document.getElementById("container");
-        const canvas = document.getElementById("canvas");
-        const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
-        const startBtn = document.getElementById("startBtn");
-        const stopBtn = document.getElementById("stopBtn");
-        const fsBtn = document.getElementById("fsBtn");
-        const fpsCounter = document.getElementById("fpsCounter");
+        "use strict";
 
-        let width, height;
-        let abortController = null;
-        let isStreaming = false;
-        let frameCount = 0;
-        let lastTime = performance.now();
-        let isRendering = false;
-
-        // Auto-hide logic variables
-        let idleTimer;
+        // --- Configuration ---
+        const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
         const IDLE_TIME_MS = 2500;
 
-        // --- Fullscreen & Idle Logic ---
-        fsBtn.addEventListener("click", toggleFullscreen);
+        // --- DOM Elements ---
+        const elements = {
+            container: document.getElementById("container"),
+            canvas: document.getElementById("canvas"),
+            startBtn: document.getElementById("startBtn"),
+            stopBtn: document.getElementById("stopBtn"),
+            fsBtn: document.getElementById("fsBtn"),
+            fpsCounter: document.getElementById("fpsCounter"),
+            placeholder: document.getElementById("placeholder"),
+            statusDot: document.getElementById("statusDot"),
+            statusText: document.getElementById("statusText")
+        };
 
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                container.requestFullscreen().catch(err => {
-                    console.error(`Error enabling fullscreen: ${err.message}`);
-                });
-            } else {
-                document.exitFullscreen();
-            }
-        }
+        const ctx = elements.canvas.getContext("2d", { alpha: false, desynchronized: true });
 
-        // Handle Mouse Movement for Auto-hide
-        container.addEventListener("mousemove", () => {
-            if (!document.fullscreenElement) return;
-            
-            // Show elements
-            container.classList.remove("user-inactive");
-            
-            // Reset timer
-            clearTimeout(idleTimer);
-            idleTimer = setTimeout(() => {
-                if (document.fullscreenElement) {
-                    container.classList.add("user-inactive");
-                }
-            }, IDLE_TIME_MS);
-        });
-
-        // Clean up when exiting fullscreen
-        document.addEventListener("fullscreenchange", () => {
-            if (!document.fullscreenElement) {
-                clearTimeout(idleTimer);
-                container.classList.remove("user-inactive");
-            }
-        });
-
-        const MAX_BUFFER_SIZE = 10 * 1024 * 1024;
+        // --- State Variables ---
+        let width = 0, height = 0;
+        let abortController = null;
+        let isStreaming = false;
         let streamBuffer = new Uint8Array(MAX_BUFFER_SIZE);
-        let writeOffset = 0;
-        let readOffset = 0;
 
-        startBtn.addEventListener("click", startStream);
-        stopBtn.addEventListener("click", () => abortController?.abort());
+        // Rendering State
+        let pendingFrame = null; // Holds the latest complete JPEG bytes
+        let frameCount = 0;
+        let fpsTimer = null;
+        let animationId = null;
 
-        async function fetchDimensions() {
+        // --- Event Listeners ---
+        elements.startBtn.addEventListener("click", startStream);
+        elements.stopBtn.addEventListener("click", stopStream);
+        elements.fsBtn.addEventListener("click", toggleFullscreen);
+        elements.container.addEventListener("mousemove", handleUserActivity);
+        document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+        // --- Core Logic ---
+
+        async function startStream() {
+            if (isStreaming) return;
+
+            // 1. Fetch Metadata
             try {
                 const res = await fetch("/stream/dimensions");
                 const data = await res.json();
                 width = data.width;
                 height = data.height;
-                canvas.width = width;
-                canvas.height = height;
-                if (!document.fullscreenElement) {
-                    container.style.aspectRatio = `${width}/${height}`;
-                }
-                return true;
-            } catch (err) { return false; }
-        }
+                elements.canvas.width = width;
+                elements.canvas.height = height;
 
-        async function startStream() {
-            if (isStreaming || !(await fetchDimensions())) return;
+                if (!document.fullscreenElement) {
+                    elements.container.style.aspectRatio = `${width}/${height}`;
+                }
+            } catch (err) {
+                console.error("Failed to fetch dimensions:", err);
+                return;
+            }
+
+            // 2. Initialize State
             abortController = new AbortController();
             isStreaming = true;
-            writeOffset = 0;
-            readOffset = 0;
+            pendingFrame = null;
+            frameCount = 0;
 
-            document.getElementById("placeholder").classList.add("hidden");
-            document.getElementById("statusDot").classList.add("live");
-            document.getElementById("statusText").innerText = "LIVE";
+            // 3. Update UI
+            updateUI(true);
 
-            requestAnimationFrame(updateFPS);
+            // 4. Start Loops
+            fpsTimer = setInterval(updateFPS, 1000);
+            renderLoop(); // Starts the drawing engine
+            readStream(abortController.signal); // Starts the network engine
+        }
+
+        function stopStream() {
+            if (abortController) abortController.abort();
+            cleanup();
+        }
+
+        function cleanup() {
+            isStreaming = false;
+            if (animationId) cancelAnimationFrame(animationId);
+            if (fpsTimer) clearInterval(fpsTimer);
+            updateUI(false);
+        }
+
+        // --- Network Engine (Producer) ---
+        async function readStream(signal) {
+            let writeOffset = 0;
+            let readOffset = 0;
 
             try {
-                const res = await fetch("/stream", { method: "POST", signal: abortController.signal });
-                const reader = res.body.getReader();
+                const response = await fetch("/stream", { method: "POST", signal });
+                const reader = response.body.getReader();
 
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
 
+                    // Buffer Management: Compact if needed
                     if (writeOffset + value.length > MAX_BUFFER_SIZE) {
+                        // If we are about to overflow, shift valid data to start
                         if (readOffset < writeOffset) {
                             const remaining = streamBuffer.subarray(readOffset, writeOffset);
                             streamBuffer.set(remaining, 0);
                             writeOffset = remaining.length;
                             readOffset = 0;
                         } else {
+                            // Hard reset if pointers are bad
                             writeOffset = 0;
                             readOffset = 0;
                         }
                     }
 
+                    // Append new data
                     streamBuffer.set(value, writeOffset);
                     writeOffset += value.length;
 
+                    // Parse Frames
+                    // Header: 4 bytes (Little Endian Length)
                     while (writeOffset - readOffset >= 4) {
+                        // Extract length using bitwise ops (fast)
                         const frameLen = (streamBuffer[readOffset]) |
                             (streamBuffer[readOffset + 1] << 8) |
                             (streamBuffer[readOffset + 2] << 16) |
                             (streamBuffer[readOffset + 3] << 24);
 
+                        // Check if we have the full payload
                         if (writeOffset - readOffset >= 4 + frameLen) {
                             const start = readOffset + 4;
                             const end = start + frameLen;
-                            if (!isRendering) {
-                                const jpegBytes = streamBuffer.subarray(start, end);
-                                drawFrame(jpegBytes);
-                            }
+
+                            // CRITICAL OPTIMIZATION:
+                            // We slice (copy) the data here. This allows the network loop
+                            // to immediately overwrite the buffer space without corrupting
+                            // the frame waiting to be drawn.
+                            // We overwrite 'pendingFrame', effectively dropping older frames
+                            // if the renderer is running slower than the network.
+                            pendingFrame = streamBuffer.slice(start, end);
+
                             readOffset += 4 + frameLen;
-                            frameCount++;
-                        } else { break; }
+                        } else {
+                            // Not enough data for the full frame yet
+                            break;
+                        }
                     }
                 }
             } catch (err) {
-                if (err.name !== 'AbortError') console.error(err);
+                if (err.name !== 'AbortError') console.error("Stream error:", err);
             } finally {
-                stopStreamUI();
+                cleanup();
             }
         }
 
-        async function drawFrame(bytes) {
-            isRendering = true;
-            try {
-                const blob = new Blob([bytes], { type: 'image/jpeg' });
-                const bitmap = await createImageBitmap(blob);
-                ctx.drawImage(bitmap, 0, 0, width, height);
-                bitmap.close();
-            } catch (e) {
-                console.error(e);
-            } finally {
-                isRendering = false;
+        // --- Rendering Engine (Consumer) ---
+        async function renderLoop() {
+            if (!isStreaming) return;
+
+            if (pendingFrame) {
+                const data = pendingFrame;
+                pendingFrame = null; // Clear queue
+
+                try {
+                    // Create ImageBitmap directly from BufferSource (fastest)
+                    const blob = new Blob([data], { type: 'image/jpeg' });
+                    const bitmap = await createImageBitmap(blob);
+
+                    // Draw and cleanup GPU memory immediately
+                    ctx.drawImage(bitmap, 0, 0, width, height);
+                    bitmap.close();
+
+                    frameCount++;
+                } catch (e) {
+                    console.error("Render error:", e);
+                }
             }
+
+            animationId = requestAnimationFrame(renderLoop);
         }
 
-        function stopStreamUI() {
-            isStreaming = false;
-            document.getElementById("placeholder").classList.remove("hidden");
-            document.getElementById("statusDot").classList.remove("live");
-            document.getElementById("statusText").innerText = "OFFLINE";
+        // --- UI Helpers ---
+        function updateUI(active) {
+            if (active) {
+                elements.placeholder.classList.add("hidden");
+                elements.statusDot.classList.add("live");
+                elements.statusText.innerText = "LIVE";
+            } else {
+                elements.placeholder.classList.remove("hidden");
+                elements.statusDot.classList.remove("live");
+                elements.statusText.innerText = "OFFLINE";
+                elements.fpsCounter.innerText = "";
+            }
         }
 
         function updateFPS() {
-            if (!isStreaming) return;
-            const now = performance.now();
-            if (now - lastTime >= 1000) {
-                fpsCounter.innerText = `${frameCount} FPS`;
-                frameCount = 0;
-                lastTime = now;
+            elements.fpsCounter.innerText = `${frameCount} FPS`;
+            frameCount = 0;
+        }
+
+        // --- Fullscreen & Idle Logic ---
+        let idleTimer;
+
+        function toggleFullscreen() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+            if (isIOS) {
+                // Fake fullscreen for iOS
+                const enabled = container.classList.toggle("mobile-fs");
+                document.body.classList.toggle("mobile-fs", enabled);
+                return;
             }
-            requestAnimationFrame(updateFPS);
+
+            // Standard fullscreen for desktop / Android
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    console.error(err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function handleUserActivity() {
+            if (!document.fullscreenElement) return;
+
+            elements.container.classList.remove("user-inactive");
+            clearTimeout(idleTimer);
+
+            idleTimer = setTimeout(() => {
+                if (document.fullscreenElement) {
+                    elements.container.classList.add("user-inactive");
+                }
+            }, IDLE_TIME_MS);
+        }
+
+        function handleFullscreenChange() {
+            if (!document.fullscreenElement) {
+                clearTimeout(idleTimer);
+                elements.container.classList.remove("user-inactive");
+                // Restore aspect ratio check in windowed mode
+                if (width && height) elements.container.style.aspectRatio = `${width}/${height}`;
+            }
         }
     </script>
 </body>
