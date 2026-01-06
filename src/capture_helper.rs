@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use enc_video::devices::DeviceSize;
+use win_video::devices::Dimensions;
 use serde::Serialize;
 
 /// Capture Types
@@ -12,13 +12,13 @@ pub enum CaptureType {
 }
 
 #[derive(Serialize)]
-pub struct SerializedDeviceSize {
+pub struct SerializedDimensions {
     pub width: usize,
     pub height: usize
 }
 
-impl SerializedDeviceSize {
-    pub fn new(size: Arc<DeviceSize>) -> Self {
+impl SerializedDimensions {
+    pub fn new(size: Arc<Dimensions>) -> Self {
         Self {
             width: size.width as usize,
             height: size.height as usize

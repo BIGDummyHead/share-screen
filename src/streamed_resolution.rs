@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc};
 
 use async_stream::stream;
 use async_web::web::{Resolution, resolution::get_status_header};
@@ -75,7 +75,7 @@ pub fn compress_frame(raw_bgra: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
 
     // 3. Encode
     // Setting quality to 60-70 is usually a sweet spot for streaming speed vs quality
-    let encoder = JpegEncoder::new_with_quality(&mut compressed, 25);
+    let encoder = JpegEncoder::new_with_quality(&mut compressed, 70);
 
     match encoder.write_image(&rgb_data, width, height, ColorType::Rgb8.into()) {
         Ok(_) => {}

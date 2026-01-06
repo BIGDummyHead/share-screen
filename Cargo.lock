@@ -277,15 +277,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
-name = "enc-video"
-version = "0.1.0"
-source = "git+https://github.com/BIGDummyHead/enc-video.git#381e4b21b63d399e53de0dce5a14a78a51cf1810"
-dependencies = [
- "tokio",
- "windows",
-]
-
-[[package]]
 name = "equator"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1054,13 +1045,13 @@ version = "0.1.0"
 dependencies = [
  "async-stream",
  "async-web",
- "enc-video",
  "futures",
  "image",
  "rayon",
  "serde",
  "tokio",
  "tokio-stream",
+ "win-video",
  "windows",
 ]
 
@@ -1289,6 +1280,15 @@ name = "weezl"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
+
+[[package]]
+name = "win-video"
+version = "0.2.0"
+source = "git+https://github.com/BIGDummyHead/win-video.git#58fdbc9481cd5f1555ec6fdc582312a45b494161"
+dependencies = [
+ "tokio",
+ "windows",
+]
 
 [[package]]
 name = "windows"

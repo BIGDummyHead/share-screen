@@ -11,23 +11,16 @@ use async_web::web::{
         json_resolution::JsonResolution,
     },
 };
-use enc_video::{
-    devices::{VideoDevices, activated_device::Output},
+use tokio::task::JoinHandle;
+use win_video::{
+    devices::{Cameras, Monitor},
     i_capture::ICapture,
-    monitor::Monitor,
-};
-use tokio::{
-    sync::{
-        Mutex,
-        mpsc::{self, Receiver, Sender},
-    },
-    task::JoinHandle,
 };
 use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx};
 
 use crate::streamed_resolution::StreamedResolution;
 use crate::{
-    capture_helper::{CaptureType, SerializedDeviceSize},
+    capture_helper::{CaptureType, SerializedDimensions},
     streamed_resolution::compress_frame,
 };
 
@@ -41,16 +34,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let dimensions = Arc::new(capture.get_dimensions()?);
 
-    let buffer = 2;
-
     //let (compressed_sender,  compressed_receiver) = mpsc::channel::<Vec<u8>>(buffer);
     //let compressed_receiver_ref = Arc::new(Mutex::new(compressed_receiver));
 
     let (compressed_sender, _) = broadcast::channel::<Vec<u8>>(100);
 
     let compressed_sender_clone = Arc::new(compressed_sender);
-
-
 
     //start receiving uncompressed data
     start_capturing(capture.clone());
@@ -59,9 +48,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Components initialized\nStarting web server...");
 
     //create the web app for sending data...
-    let mut app = App::bind(100, "10.0.0.104:5074").await?;
+    let mut app = App::bind(100, "10.0.0.83:5074").await?;
 
-    init_app(&mut app, compressed_sender_clone.clone(), dimensions.clone()).await;
+    init_app(
+        &mut app,
+        compressed_sender_clone.clone(),
+        dimensions.clone(),
+    )
+    .await;
     let server_thread = app.start().await;
 
     println!("Server started");
@@ -75,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn init_app(
     app: &mut App,
     broad_tx: Arc<broadcast::Sender<Vec<u8>>>,
-    dimensions: Arc<enc_video::devices::DeviceSize>,
+    dimensions: Arc<win_video::devices::Dimensions>,
 ) -> () {
     //home page for serving the streamables
     app.add_or_change_route(
@@ -96,7 +90,7 @@ async fn init_app(
             let dimensions = dimensions_clone.clone();
 
             Box::pin(async move {
-                let resolved = JsonResolution::new(SerializedDeviceSize::new(dimensions.clone()));
+                let resolved = JsonResolution::new(SerializedDimensions::new(dimensions.clone()));
 
                 if resolved.is_err() {
                     return EmptyResolution::new(500);
@@ -116,7 +110,6 @@ async fn init_app(
         async_web::web::Method::POST,
         None,
         Arc::new(move |_| {
-
             let tx = broad_tx.clone();
 
             Box::pin(async move {
@@ -150,9 +143,7 @@ fn start_receiving(
     let rx = capture.clone_receiver();
     let dimensions = capture.get_dimensions().expect("Could not get dimensions.");
 
-
     let handle = tokio::spawn(async move {
-
         loop {
             let data = {
                 let mut guard = rx.lock().await;
@@ -182,9 +173,7 @@ fn start_receiving(
 
                 //send the compressed data
                 let _ = tx.send(packet);
-
             }
-
         }
     });
 
@@ -220,12 +209,14 @@ fn initialize_capture(
 
             println!("CoInitialize done");
 
-            let video_devices = VideoDevices::new()?;
+            let video_devices = Cameras::new()?;
 
             println!("Video devices aggregated");
 
-            let device =
-                video_devices.activate_device(video_devices.devices[0], Some(Output::RGB32))?;
+            let device = video_devices.activate_device(
+                video_devices.devices[0],
+                Some(win_video::devices::camera::Output::RGB32),
+            )?;
 
             println!("Activated device.");
 
@@ -289,7 +280,14 @@ fn request_monitor() -> i32 {
     let mut monitor_index = None;
 
     while let None = monitor_index {
-        let monitor = prompt("Choose monitor to share (ex. 1, 2, 3): ");
+      
+        let m_count;
+
+        unsafe  {
+            m_count = win_video::devices::get_monitor_count();
+        }
+
+        let monitor = prompt(&format!("Choose a monitor to share (from 1 to {}): ", m_count));
 
         if let Err(m_e) = monitor {
             println!("Failed to choose monitor: {m_e}");
