@@ -4,6 +4,8 @@ pub mod streamed_resolution;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
+use async_web::resolve;
+
 use async_web::web::{
     App,
     resolution::{
@@ -82,7 +84,7 @@ async fn init_app(
         "/",
         async_web::web::Method::GET,
         None,
-        Arc::new(|_| Box::pin(async move { FileTextResolution::new("stream.html") })),
+        resolve!(_req, { FileTextResolution::new("stream.html") }),
     )
     .await
     .expect("Failed to change home page.");
@@ -92,39 +94,33 @@ async fn init_app(
         "/stream/dimensions",
         async_web::web::Method::GET,
         None,
-        Arc::new(move |_| {
-            let dimensions = dimensions_clone.clone();
+        resolve!(_req, moves[dimensions_clone], {
+            let resolved = JsonResolution::new(SerializedDimensions::new(dimensions_clone.clone()));
 
-            Box::pin(async move {
-                let resolved = JsonResolution::new(SerializedDimensions::new(dimensions.clone()));
+            if resolved.is_err() {
+                return EmptyResolution::new(500);
+            }
 
-                if resolved.is_err() {
-                    return EmptyResolution::new(500);
-                }
+            let resolved = resolved.unwrap();
 
-                let resolved = resolved.unwrap();
-
-                resolved.into_resolution()
-            })
+            resolved.into_resolution()
         }),
     )
     .await;
 
+    let broad_tx_clone = broad_tx.clone();
     //streamed POST for the content of the device
     app.add_or_panic(
         "/stream",
         async_web::web::Method::POST,
         None,
-        Arc::new(move |_| {
-            let tx = broad_tx.clone();
+        resolve!(_req, moves[broad_tx_clone], {
 
-            Box::pin(async move {
-                let rx = tx.subscribe();
+            let rx = broad_tx_clone.subscribe();
 
-                let resolution = StreamedResolution::new(rx);
+            let resolution = StreamedResolution::new(rx);
 
-                resolution
-            })
+            resolution
         }),
     )
     .await;
@@ -284,14 +280,16 @@ fn request_monitor() -> i32 {
     let mut monitor_index = None;
 
     while let None = monitor_index {
-      
         let m_count;
 
-        unsafe  {
+        unsafe {
             m_count = win_video::devices::get_monitor_count();
         }
 
-        let monitor = prompt(&format!("Choose a monitor to share (from 1 to {}): ", m_count));
+        let monitor = prompt(&format!(
+            "Choose a monitor to share (from 1 to {}): ",
+            m_count
+        ));
 
         if let Err(m_e) = monitor {
             println!("Failed to choose monitor: {m_e}");
