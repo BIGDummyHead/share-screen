@@ -1,0 +1,279 @@
+   /* =====================
+   Apple-Style Glass UI
+   ===================== */
+
+   :root {
+       --glass-bg: rgba(255, 255, 255, 0.08);
+       --glass-border: rgba(255, 255, 255, 0.18);
+       --glass-highlight: rgba(255, 255, 255, 0.35);
+
+       --text-primary: #ffffff;
+       --text-secondary: rgba(255, 255, 255, 0.7);
+
+       --accent-1: #7c7cff;
+       --accent-2: #00f5d4;
+       --accent-3: #ff7ad9;
+   }
+
+   /* =====================
+   Background
+   ===================== */
+   body {
+       margin: 0;
+       height: 100vh;
+       background:
+           radial-gradient(1200px at 10% 10%, #7c7cff33, transparent),
+           radial-gradient(1000px at 90% 30%, #00f5d433, transparent),
+           radial-gradient(900px at 50% 90%, #ff7ad933, transparent),
+           #050507;
+
+       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+           "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+       color: var(--text-primary);
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       overflow: hidden;
+   }
+
+   /* =====================
+   Viewer Container
+   ===================== */
+   .viewer-container {
+       position: relative;
+       width: 90%;
+       max-width: 1300px;
+       aspect-ratio: 16 / 9;
+
+       background: linear-gradient(180deg,
+               rgba(255, 255, 255, 0.12),
+               rgba(255, 255, 255, 0.02));
+
+       backdrop-filter: blur(28px) saturate(160%);
+       -webkit-backdrop-filter: blur(28px) saturate(160%);
+
+       border-radius: 22px;
+       border: 1px solid var(--glass-border);
+
+       box-shadow:
+           0 40px 80px rgba(0, 0, 0, 0.65),
+           inset 0 1px 0 var(--glass-highlight);
+
+       overflow: hidden;
+       transition: all 0.4s ease;
+   }
+
+   /* Fullscreen */
+   .viewer-container:fullscreen {
+       width: 100vw;
+       height: 100vh;
+       max-width: none;
+       border-radius: 0;
+       border: none;
+   }
+
+   /* =====================
+   Canvas
+   ===================== */
+   canvas {
+       width: 100%;
+       height: 100%;
+       display: block;
+   }
+
+   /* =====================
+   Placeholder
+   ===================== */
+   .placeholder {
+       position: absolute;
+       inset: 0;
+
+       display: flex;
+       align-items: center;
+       justify-content: center;
+
+       background:
+           radial-gradient(circle at center,
+               rgba(255, 255, 255, 0.15),
+               rgba(0, 0, 0, 0.85));
+
+       backdrop-filter: blur(20px);
+       z-index: 5;
+       transition: opacity 0.5s ease;
+   }
+
+   .placeholder.hidden {
+       opacity: 0;
+       pointer-events: none;
+   }
+
+   /* =====================
+   Primary Button
+   ===================== */
+   button {
+       font-family: inherit;
+       color: white;
+       border: none;
+       cursor: pointer;
+   }
+
+   button.primary {
+       display: flex;
+       align-items: center;
+       gap: 10px;
+
+       padding: 14px 34px;
+       font-size: 1rem;
+       font-weight: 600;
+
+       background: linear-gradient(135deg,
+               var(--accent-1),
+               var(--accent-2));
+
+       border-radius: 999px;
+
+       box-shadow:
+           0 10px 40px rgba(124, 124, 255, 0.45),
+           inset 0 1px 0 rgba(255, 255, 255, 0.5);
+
+       transition: transform 0.25s ease, box-shadow 0.25s ease;
+   }
+
+   button.primary:hover {
+       transform: translateY(-2px) scale(1.05);
+       box-shadow:
+           0 16px 60px rgba(124, 124, 255, 0.65);
+   }
+
+   /* =====================
+   Controls (Glass Pill)
+   ===================== */
+   .controls {
+       position: absolute;
+       bottom: 28px;
+       left: 50%;
+       transform: translateX(-50%);
+
+       display: flex;
+       gap: 14px;
+       align-items: center;
+
+       padding: 10px 18px;
+
+       background: var(--glass-bg);
+       backdrop-filter: blur(22px) saturate(180%);
+       -webkit-backdrop-filter: blur(22px) saturate(180%);
+
+       border-radius: 999px;
+       border: 1px solid var(--glass-border);
+
+       box-shadow:
+           0 8px 30px rgba(0, 0, 0, 0.5),
+           inset 0 1px 0 var(--glass-highlight);
+
+       opacity: 0;
+       transition: opacity 0.4s ease;
+   }
+
+   .viewer-container:hover .controls {
+       opacity: 1;
+   }
+
+   /* Control buttons */
+   .controls button {
+       width: 42px;
+       height: 42px;
+       border-radius: 50%;
+       background: transparent;
+       color: white;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+   }
+
+   .controls button:hover {
+       background: rgba(255, 255, 255, 0.12);
+   }
+
+   /* =====================
+   Telemetry Badges
+   ===================== */
+   .telemetry {
+       position: absolute;
+       top: 24px;
+       left: 24px;
+       display: flex;
+       gap: 12px;
+   }
+
+   .badge {
+       display: flex;
+       align-items: center;
+       gap: 8px;
+
+       padding: 8px 14px;
+       font-size: 13px;
+       font-weight: 600;
+
+       background: var(--glass-bg);
+       backdrop-filter: blur(18px);
+       border-radius: 12px;
+       border: 1px solid var(--glass-border);
+
+       box-shadow:
+           inset 0 1px 0 var(--glass-highlight),
+           0 6px 20px rgba(0, 0, 0, 0.4);
+   }
+
+   .status-dot {
+       width: 9px;
+       height: 9px;
+       border-radius: 50%;
+       background: #ff4d4d;
+   }
+
+   .status-dot.live {
+       background: #00f5a0;
+       box-shadow: 0 0 14px #00f5a0;
+   }
+
+   /* =====================
+   SVG Icons
+   ===================== */
+   svg {
+       width: 22px;
+       height: 22px;
+       stroke: currentColor;
+       fill: none;
+       stroke-width: 2;
+   }
+
+   /* =========================
+   iOS / Mobile Fullscreen
+   ========================= */
+
+   .viewer-container.mobile-fs {
+       position: fixed !important;
+       inset: 0 !important;
+       width: 100vw !important;
+       height: 100dvh !important;
+       /* iOS-safe */
+       max-width: none !important;
+       aspect-ratio: auto !important;
+       border-radius: 0 !important;
+       border: none !important;
+       z-index: 9999;
+   }
+
+   /* Prevent page scrolling when fullscreen */
+   body.mobile-fs {
+       overflow: hidden;
+       touch-action: none;
+   }
+
+   @media (hover: none) {
+       .controls {
+           opacity: 1 !important;
+       }
+   }

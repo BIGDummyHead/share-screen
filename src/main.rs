@@ -1,11 +1,11 @@
 pub mod capture_helper;
 pub mod streamed_resolution;
 
+use async_web::web::resolution::file_resolution::FileResolution;
 use std::sync::Arc;
-use async_web::web::Middleware;
 use tokio::sync::broadcast;
 
-use async_web::{middleware, resolve};
+use async_web::resolve;
 
 use async_web::web::{
     App,
@@ -90,16 +90,31 @@ async fn init_app(
     .await
     .expect("Failed to change home page.");
 
-    let is_admin = middleware!(_req, {
-        println!("Test");
-        Middleware::Next
-    });
+    app.add_or_panic(
+        "/content/{file}",
+        async_web::web::Method::GET,
+        None,
+        resolve!(req, {
+            let file = {
+                let req_lock = req.lock().await;
+
+                let file: &String = req_lock.variables.get("file").unwrap();
+
+                file.clone()
+            };
+
+            let path = format!("content/{file}");
+
+            FileResolution::new(path)
+        }),
+    )
+    .await;
 
     let dimensions_clone = dimensions.clone();
     app.add_or_panic(
         "/stream/dimensions",
         async_web::web::Method::GET,
-        middleware!(is_admin),
+        None,
         resolve!(_req, moves[dimensions_clone], {
             let resolved = JsonResolution::new(SerializedDimensions::new(dimensions_clone.clone()));
 
@@ -121,7 +136,6 @@ async fn init_app(
         async_web::web::Method::POST,
         None,
         resolve!(_req, moves[broad_tx_clone], {
-
             let rx = broad_tx_clone.subscribe();
 
             let resolution = StreamedResolution::new(rx);
