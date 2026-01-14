@@ -2,9 +2,10 @@ pub mod capture_helper;
 pub mod streamed_resolution;
 
 use std::sync::Arc;
+use async_web::web::Middleware;
 use tokio::sync::broadcast;
 
-use async_web::resolve;
+use async_web::{middleware, resolve};
 
 use async_web::web::{
     App,
@@ -89,11 +90,16 @@ async fn init_app(
     .await
     .expect("Failed to change home page.");
 
+    let is_admin = middleware!(_req, {
+        println!("Test");
+        Middleware::Next
+    });
+
     let dimensions_clone = dimensions.clone();
     app.add_or_panic(
         "/stream/dimensions",
         async_web::web::Method::GET,
-        None,
+        middleware!(is_admin),
         resolve!(_req, moves[dimensions_clone], {
             let resolved = JsonResolution::new(SerializedDimensions::new(dimensions_clone.clone()));
 
