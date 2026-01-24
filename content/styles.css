@@ -1,279 +1,330 @@
-   /* =====================
-   Apple-Style Glass UI
-   ===================== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
-   :root {
-       --glass-bg: rgba(255, 255, 255, 0.08);
-       --glass-border: rgba(255, 255, 255, 0.18);
-       --glass-highlight: rgba(255, 255, 255, 0.35);
+:root {
+  --pure-white: #ffffff;
+  --soft-gray: #2a2a2e;
+  --mid-gray: #86868b;
+  --dark: #1d1d1f;
+  --accent: #0071e3;
+  --shadow: rgba(0, 0, 0, 0.3);
+}
 
-       --text-primary: #ffffff;
-       --text-secondary: rgba(255, 255, 255, 0.7);
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-       --accent-1: #7c7cff;
-       --accent-2: #00f5d4;
-       --accent-3: #ff7ad9;
-   }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(to bottom, #1a1a1d 0%, #232328 50%, #1e1e22 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #e5e5e7;
+  position: relative;
+}
 
-   /* =====================
-   Background
-   ===================== */
-   body {
-       margin: 0;
-       height: 100vh;
-       background:
-           radial-gradient(1200px at 10% 10%, #7c7cff33, transparent),
-           radial-gradient(1000px at 90% 30%, #00f5d433, transparent),
-           radial-gradient(900px at 50% 90%, #ff7ad933, transparent),
-           #050507;
+body::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: 
+    radial-gradient(circle at 30% 40%, rgba(0, 113, 227, 0.08), transparent 40%),
+    radial-gradient(circle at 70% 60%, rgba(0, 113, 227, 0.05), transparent 40%);
+  animation: float 30s ease-in-out infinite;
+  pointer-events: none;
+}
 
-       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
-           "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(2%, 2%); }
+}
 
-       color: var(--text-primary);
-       display: flex;
-       align-items: center;
-       justify-content: center;
-       overflow: hidden;
-   }
+.viewer-container {
+  position: relative;
+  width: 88%;
+  max-width: 1200px;
+  aspect-ratio: 16 / 9;
+  background: rgba(30, 30, 34, 0.8);
+  backdrop-filter: blur(60px) saturate(120%);
+  border-radius: 16px;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  box-shadow: 
+    0 1px 1px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 8px 16px rgba(0, 0, 0, 0.6),
+    0 16px 32px rgba(0, 0, 0, 0.7);
+  transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-   /* =====================
-   Viewer Container
-   ===================== */
-   .viewer-container {
-       position: relative;
-       width: 90%;
-       max-width: 1300px;
-       aspect-ratio: 16 / 9;
+.viewer-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 2px 2px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.6),
+    0 12px 24px rgba(0, 0, 0, 0.7),
+    0 24px 48px rgba(0, 0, 0, 0.8);
+}
 
-       background: linear-gradient(180deg,
-               rgba(255, 255, 255, 0.12),
-               rgba(255, 255, 255, 0.02));
+.viewer-container:fullscreen,
+.viewer-container.mobile-fs {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  border: none;
+  z-index: 9999;
+}
 
-       backdrop-filter: blur(28px) saturate(160%);
-       -webkit-backdrop-filter: blur(28px) saturate(160%);
+body.mobile-fs {
+  overflow: hidden;
+  touch-action: none;
+}
 
-       border-radius: 22px;
-       border: 1px solid var(--glass-border);
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
-       box-shadow:
-           0 40px 80px rgba(0, 0, 0, 0.65),
-           inset 0 1px 0 var(--glass-highlight);
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(26, 26, 29, 0.98), rgba(30, 30, 34, 0.95));
+  backdrop-filter: blur(40px);
+  z-index: 5;
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-       overflow: hidden;
-       transition: all 0.4s ease;
-   }
+.placeholder.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.98);
+}
 
-   /* Fullscreen */
-   .viewer-container:fullscreen {
-       width: 100vw;
-       height: 100vh;
-       max-width: none;
-       border-radius: 0;
-       border: none;
-   }
+button {
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
 
-   /* =====================
-   Canvas
-   ===================== */
-   canvas {
-       width: 100%;
-       height: 100%;
-       display: block;
-   }
+button.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 500;
+  color: white;
+  background: #2a2a2e;
+  border-radius: 100px;
+  letter-spacing: -0.01em;
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 4px 8px rgba(0, 0, 0, 0.4);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
 
-   /* =====================
-   Placeholder
-   ===================== */
-   .placeholder {
-       position: absolute;
-       inset: 0;
+button.primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-       display: flex;
-       align-items: center;
-       justify-content: center;
+button.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 8px 16px rgba(0, 0, 0, 0.5);
+}
 
-       background:
-           radial-gradient(circle at center,
-               rgba(255, 255, 255, 0.15),
-               rgba(0, 0, 0, 0.85));
+button.primary:hover::before {
+  opacity: 1;
+}
 
-       backdrop-filter: blur(20px);
-       z-index: 5;
-       transition: opacity 0.5s ease;
-   }
+button.primary:active {
+  transform: translateY(0);
+  transition-duration: 0.1s;
+}
 
-   .placeholder.hidden {
-       opacity: 0;
-       pointer-events: none;
-   }
+.controls {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 6px;
+  background: rgba(30, 30, 34, 0.7);
+  backdrop-filter: blur(40px) saturate(140%);
+  border-radius: 100px;
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-   /* =====================
-   Primary Button
-   ===================== */
-   button {
-       font-family: inherit;
-       color: white;
-       border: none;
-       cursor: pointer;
-   }
+.viewer-container:hover .controls {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-2px);
+}
 
-   button.primary {
-       display: flex;
-       align-items: center;
-       gap: 10px;
+.controls button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-radius: 50%;
+  color: #e5e5e7;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
 
-       padding: 14px 34px;
-       font-size: 1rem;
-       font-weight: 600;
+.controls button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-       background: linear-gradient(135deg,
-               var(--accent-1),
-               var(--accent-2));
+.controls button:hover::before {
+  opacity: 1;
+  transform: scale(1);
+}
 
-       border-radius: 999px;
+.controls button:active {
+  transform: scale(0.95);
+}
 
-       box-shadow:
-           0 10px 40px rgba(124, 124, 255, 0.45),
-           inset 0 1px 0 rgba(255, 255, 255, 0.5);
+.telemetry {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
 
-       transition: transform 0.25s ease, box-shadow 0.25s ease;
-   }
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e5e5e7;
+  background: rgba(30, 30, 34, 0.6);
+  backdrop-filter: blur(20px);
+  border-radius: 100px;
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  letter-spacing: -0.01em;
+  box-shadow: 
+    0 1px 4px rgba(0, 0, 0, 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-   button.primary:hover {
-       transform: translateY(-2px) scale(1.05);
-       box-shadow:
-           0 16px 60px rgba(124, 124, 255, 0.65);
-   }
+.badge:hover {
+  background: rgba(30, 30, 34, 0.75);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.5),
+    0 6px 16px rgba(0, 0, 0, 0.6);
+}
 
-   /* =====================
-   Controls (Glass Pill)
-   ===================== */
-   .controls {
-       position: absolute;
-       bottom: 28px;
-       left: 50%;
-       transform: translateX(-50%);
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mid-gray);
+  box-shadow: 0 0 0 2px rgba(134, 134, 139, 0.15);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-       display: flex;
-       gap: 14px;
-       align-items: center;
+.status-dot.live {
+  background: #30d158;
+  box-shadow: 
+    0 0 0 2px rgba(48, 209, 88, 0.2),
+    0 0 8px rgba(48, 209, 88, 0.4);
+  animation: breathe 3s ease-in-out infinite;
+}
 
-       padding: 10px 18px;
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 
-       background: var(--glass-bg);
-       backdrop-filter: blur(22px) saturate(180%);
-       -webkit-backdrop-filter: blur(22px) saturate(180%);
+svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
-       border-radius: 999px;
-       border: 1px solid var(--glass-border);
+@media (hover: none) {
+  .controls {
+    opacity: 1;
+  }
+}
 
-       box-shadow:
-           0 8px 30px rgba(0, 0, 0, 0.5),
-           inset 0 1px 0 var(--glass-highlight);
-
-       opacity: 0;
-       transition: opacity 0.4s ease;
-   }
-
-   .viewer-container:hover .controls {
-       opacity: 1;
-   }
-
-   /* Control buttons */
-   .controls button {
-       width: 42px;
-       height: 42px;
-       border-radius: 50%;
-       background: transparent;
-       color: white;
-       display: flex;
-       align-items: center;
-       justify-content: center;
-   }
-
-   .controls button:hover {
-       background: rgba(255, 255, 255, 0.12);
-   }
-
-   /* =====================
-   Telemetry Badges
-   ===================== */
-   .telemetry {
-       position: absolute;
-       top: 24px;
-       left: 24px;
-       display: flex;
-       gap: 12px;
-   }
-
-   .badge {
-       display: flex;
-       align-items: center;
-       gap: 8px;
-
-       padding: 8px 14px;
-       font-size: 13px;
-       font-weight: 600;
-
-       background: var(--glass-bg);
-       backdrop-filter: blur(18px);
-       border-radius: 12px;
-       border: 1px solid var(--glass-border);
-
-       box-shadow:
-           inset 0 1px 0 var(--glass-highlight),
-           0 6px 20px rgba(0, 0, 0, 0.4);
-   }
-
-   .status-dot {
-       width: 9px;
-       height: 9px;
-       border-radius: 50%;
-       background: #ff4d4d;
-   }
-
-   .status-dot.live {
-       background: #00f5a0;
-       box-shadow: 0 0 14px #00f5a0;
-   }
-
-   /* =====================
-   SVG Icons
-   ===================== */
-   svg {
-       width: 22px;
-       height: 22px;
-       stroke: currentColor;
-       fill: none;
-       stroke-width: 2;
-   }
-
-   /* =========================
-   iOS / Mobile Fullscreen
-   ========================= */
-
-   .viewer-container.mobile-fs {
-       position: fixed !important;
-       inset: 0 !important;
-       width: 100vw !important;
-       height: 100dvh !important;
-       /* iOS-safe */
-       max-width: none !important;
-       aspect-ratio: auto !important;
-       border-radius: 0 !important;
-       border: none !important;
-       z-index: 9999;
-   }
-
-   /* Prevent page scrolling when fullscreen */
-   body.mobile-fs {
-       overflow: hidden;
-       touch-action: none;
-   }
-
-   @media (hover: none) {
-       .controls {
-           opacity: 1 !important;
-       }
-   }
+@media (max-width: 768px) {
+  .viewer-container {
+    width: 94%;
+    border-radius: 12px;
+  }
+  
+  .telemetry {
+    top: 16px;
+    left: 16px;
+    gap: 6px;
+  }
+  
+  .badge {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .controls {
+    bottom: 16px;
+    padding: 4px;
+  }
+  
+  .controls button {
+    width: 38px;
+    height: 38px;
+  }
+}

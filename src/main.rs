@@ -1,39 +1,29 @@
-pub mod capture_helper;
+pub mod captures;
+pub mod frame_compressor;
 pub mod streamed_resolution;
 
+use async_web::web::Resolution;
 use async_web::web::resolution::file_resolution::FileResolution;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
 use async_web::resolve;
 
-use async_web::web::{
-    App,
-    resolution::{
-        empty_resolution::EmptyResolution, file_text_resolution::FileTextResolution,
-        json_resolution::JsonResolution,
-    },
-};
-use tokio::task::JoinHandle;
-use win_video::{
-    devices::{Cameras, Monitor},
-    i_capture::ICapture,
-};
-use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx};
+use async_web::web::{App, resolution::json_resolution::JsonResolution};
+use win_video::i_capture::ICapture;
 
+use crate::captures::{CaptureType, SerializedDimensions};
 use crate::streamed_resolution::StreamedResolution;
-use crate::{
-    capture_helper::{CaptureType, SerializedDimensions},
-    streamed_resolution::compress_frame,
-};
+
+use crate::frame_compressor::compress_frame;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let capture_type = get_capture_type_from_user();
+    let capture_type = get_user_capture_type();
 
     println!("Initializing capture component now...");
 
-    let capture = initialize_capture(capture_type)?;
+    let capture = capture_type.activate()?;
 
     let dimensions = Arc::new(capture.get_dimensions()?);
 
@@ -45,37 +35,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let compressed_sender_clone = Arc::new(compressed_sender);
 
     //start receiving uncompressed data
-    start_capturing(capture.clone());
-    start_receiving(capture.clone(), compressed_sender_clone.clone());
+    spawn_frame_capture(capture.clone());
+    spawn_frame_compressor(capture.clone(), compressed_sender_clone.clone());
 
     println!("Components initialized\nStarting web server...");
 
     let host_address = local_ip_address::local_ip()?;
-
     let server_socket = format!("{host_address:?}:80");
-
-    println!("Now hosting on http://{server_socket}");
 
     //create the web app for sending data...
     let mut app = App::bind(100, &server_socket).await?;
 
-    init_app(
+    route_app(
         &mut app,
         compressed_sender_clone.clone(),
         dimensions.clone(),
     )
     .await;
-    let server_thread = app.start().await;
 
-    println!("Server started");
+    let _ = app.start();
 
-    let _ = server_thread.await;
+    println!("Now hosting on http://{server_socket}");
+
+    loop {
+        let _ = prompt("Press enter to quit...");
+        break;
+    }
+
+    let _ = app.close().await;
 
     Ok(())
 }
 
-//add routing and start the process of sharing data...
-async fn init_app(
+/// # Route App
+///
+/// Adds routing to the web app, providing content from the content folder, changing the home page, and setting up the streamed resolutions.
+async fn route_app(
     app: &mut App,
     broad_tx: Arc<broadcast::Sender<Vec<u8>>>,
     dimensions: Arc<win_video::devices::Dimensions>,
@@ -85,7 +80,9 @@ async fn init_app(
         "/",
         async_web::web::Method::GET,
         None,
-        resolve!(_req, { FileTextResolution::new("stream.html") }),
+        resolve!(_req, {
+            FileResolution::new("content/stream.html").resolve()
+        }),
     )
     .await
     .expect("Failed to change home page.");
@@ -105,7 +102,7 @@ async fn init_app(
 
             let path = format!("content/{file}");
 
-            FileResolution::new(path)
+            FileResolution::new(&path).resolve()
         }),
     )
     .await;
@@ -116,15 +113,12 @@ async fn init_app(
         async_web::web::Method::GET,
         None,
         resolve!(_req, moves[dimensions_clone], {
-            let resolved = JsonResolution::new(SerializedDimensions::new(dimensions_clone.clone()));
-
-            if resolved.is_err() {
-                return EmptyResolution::new(500);
+            match JsonResolution::serialize(SerializedDimensions::from_dimensions(
+                dimensions_clone.clone(),
+            )) {
+                Ok(serialized) => serialized.resolve(),
+                Err(err_r) => err_r.resolve(),
             }
-
-            let resolved = resolved.unwrap();
-
-            resolved.into_resolution()
         }),
     )
     .await;
@@ -138,32 +132,37 @@ async fn init_app(
         resolve!(_req, moves[broad_tx_clone], {
             let rx = broad_tx_clone.subscribe();
 
-            let resolution = StreamedResolution::new(rx);
-
-            resolution
+            StreamedResolution::from_receiver(rx).resolve()
         }),
     )
     .await;
 }
 
-fn start_capturing(capture: Arc<dyn ICapture<CaptureOutput = Vec<u8>>>) -> JoinHandle<()> {
+/// # Spawn Frame Capture
+///
+/// Spawns a tokio task that starts and awaits the capture function of the device.
+fn spawn_frame_capture(capture: Arc<dyn ICapture<CaptureOutput = Vec<u8>>>) {
     tokio::spawn(async move {
-        let capture_result = capture.start_capturing().await;
-
-        if let Err(e) = capture_result {
-            println!("Capture stopped: {e}");
-        }
-    })
+        match capture.start_capturing().await {
+            Err(e) => eprintln!("{e}"),
+            _ => {}
+        };
+    });
 }
 
-fn start_receiving(
+/// # Spawn Compressor
+///
+/// Spawns a separate task that compresses incoming frames of the device and sends them to the broadcast channel
+///
+/// Note: `This should be called with the spawn_frame_capture (does not matter the order)`
+fn spawn_frame_compressor(
     capture: Arc<dyn ICapture<CaptureOutput = Vec<u8>>>,
-    tx: Arc<broadcast::Sender<Vec<u8>>>,
-) -> JoinHandle<()> {
+    compressed_frames: Arc<broadcast::Sender<Vec<u8>>>,
+) {
     let rx = capture.clone_receiver();
     let dimensions = capture.get_dimensions().expect("Could not get dimensions.");
 
-    let handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         loop {
             let data = {
                 let mut guard = rx.lock().await;
@@ -192,67 +191,16 @@ fn start_receiving(
                 packet.extend_from_slice(&compressed);
 
                 //send the compressed data
-                let _ = tx.send(packet);
+                let _ = compressed_frames.send(packet);
             }
         }
     });
-
-    handle
 }
 
-/*
-
-let compressed_tx_clone = compressed_tx.clone();
-    let compressed_rx = Arc::new(Mutex::new(compressed_rx));
-    let dimensions_clone = dimensions.clone();
-    tokio::spawn(async move {
-        loop {
-
-
-        }
-    });
-
- */
-
-fn initialize_capture(
-    capture_type: CaptureType,
-) -> Result<Arc<dyn ICapture<CaptureOutput = Vec<u8>>>, Box<dyn std::error::Error>> {
-    let capture;
-
-    match capture_type {
-        CaptureType::Camera => unsafe {
-            let result = CoInitializeEx(None, COINIT_MULTITHREADED);
-
-            if result != windows::Win32::Foundation::S_OK {
-                return Err("Failed to CoIntialize for camera.".into());
-            }
-
-            println!("CoInitialize done");
-
-            let video_devices = Cameras::new()?;
-
-            println!("Video devices aggregated");
-
-            let device = video_devices.activate_device(
-                video_devices.devices[0],
-                Some(win_video::devices::camera::Output::RGB32),
-            )?;
-
-            println!("Activated device.");
-
-            capture = device as Arc<dyn ICapture<CaptureOutput = Vec<u8>>>;
-        },
-        CaptureType::Monitor(m) => unsafe {
-            let monitor = Monitor::from_monitor(m as u32)?;
-
-            capture = monitor as Arc<dyn ICapture<CaptureOutput = Vec<u8>>>;
-        },
-    }
-
-    Ok(capture)
-}
-
-fn get_capture_type_from_user() -> CaptureType {
+/// # get user capture type
+///
+/// Retrieves the user's preferred capture type.
+fn get_user_capture_type() -> CaptureType {
     let mut capture: Option<CaptureType> = None;
 
     while let None = capture {
@@ -284,7 +232,7 @@ fn get_capture_type_from_user() -> CaptureType {
                 capture = Some(CaptureType::Camera);
             }
             '2' => {
-                capture = Some(CaptureType::Monitor(request_monitor()));
+                capture = Some(CaptureType::Monitor(user_request_monitor_index()));
             }
             _ => {
                 println!("Invalid choice, please choose again from the following\n");
@@ -296,43 +244,42 @@ fn get_capture_type_from_user() -> CaptureType {
     capture.unwrap()
 }
 
-fn request_monitor() -> i32 {
+/// # User Request Monitor index
+///
+/// Retrieves the user's preferred monitor index. This is called within the `get_user_capture_type` function if the answer proceeds with Monitor
+fn user_request_monitor_index() -> i32 {
     let mut monitor_index = None;
 
     while let None = monitor_index {
-        let m_count;
+        let m_count = unsafe { win_video::devices::get_monitor_count() };
 
-        unsafe {
-            m_count = win_video::devices::get_monitor_count();
-        }
-
-        let monitor = prompt(&format!(
+        let monitor = match prompt(&format!(
             "Choose a monitor to share (from 1 to {}): ",
             m_count
-        ));
+        )) {
+            Err(m_e) => {
+                println!("Failed to choose monitor: {m_e}");
+                continue;
+            }
+            Ok(m_choice) => m_choice.trim().to_lowercase().parse::<i32>(),
+        };
 
-        if let Err(m_e) = monitor {
-            println!("Failed to choose monitor: {m_e}");
-            continue;
-        }
+        let index = match monitor {
+            Ok(i) => {
+                if i <= 0 {
+                    print!("Invalid index provided.");
+                    continue;
+                }
 
-        let monitor = monitor.unwrap().trim().to_lowercase();
+                Some(i - 1)
+            }
+            Err(m_e) => {
+                println!("Failed to parse answer: {m_e}");
+                continue;
+            }
+        };
 
-        let monitor_index_parse = monitor.parse::<i32>();
-
-        if let Err(m_e) = monitor_index_parse {
-            println!("Failed to parse answer: {m_e}");
-            continue;
-        }
-
-        let index = monitor_index_parse.unwrap();
-
-        if index <= 0 {
-            println!("Invalid index provided.");
-            continue;
-        }
-
-        monitor_index = Some(index - 1);
+        monitor_index = index;
     }
 
     monitor_index.unwrap()
