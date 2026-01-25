@@ -89,7 +89,7 @@ dependencies = [
 [[package]]
 name = "async-web"
 version = "0.1.0"
-source = "git+https://github.com/BIGDummyHead/async-web.git#f18eb55cd21152c8dfac438fe29a354819a42318"
+source = "git+https://github.com/BIGDummyHead/async-web.git#77776886b87d18b4a8bc422809633b1df41509ed"
 dependencies = [
  "async-stream",
  "bytes",

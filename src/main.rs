@@ -7,8 +7,6 @@ use async_web::web::resolution::file_resolution::FileResolution;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
-use async_web::resolve;
-
 use async_web::web::{App, resolution::json_resolution::JsonResolution};
 use win_video::i_capture::ICapture;
 
@@ -76,14 +74,9 @@ async fn route_app(
     dimensions: Arc<win_video::devices::Dimensions>,
 ) -> () {
     //home page for serving the streamables
-    app.add_or_change_route(
-        "/",
-        async_web::web::Method::GET,
-        None,
-        resolve!(_req, {
-            FileResolution::new("content/stream.html").resolve()
-        }),
-    )
+    app.add_or_change_route("/", async_web::web::Method::GET, None, |_req| async move {
+        FileResolution::new("content/stream.html").resolve()
+    })
     .await
     .expect("Failed to change home page.");
 
@@ -91,11 +84,10 @@ async fn route_app(
         "/content/{file}",
         async_web::web::Method::GET,
         None,
-        resolve!(req, {
+        |req| async move {
             let file = {
-                let req_lock = req.lock().await;
-
-                let file: &String = req_lock.variables.get("file").unwrap();
+                let req = req.lock().await;
+                let file: &String = req.variables.get("file").unwrap();
 
                 file.clone()
             };
@@ -103,7 +95,7 @@ async fn route_app(
             let path = format!("content/{file}");
 
             FileResolution::new(&path).resolve()
-        }),
+        },
     )
     .await;
 
@@ -112,14 +104,17 @@ async fn route_app(
         "/stream/dimensions",
         async_web::web::Method::GET,
         None,
-        resolve!(_req, moves[dimensions_clone], {
-            match JsonResolution::serialize(SerializedDimensions::from_dimensions(
-                dimensions_clone.clone(),
-            )) {
-                Ok(serialized) => serialized.resolve(),
-                Err(err_r) => err_r.resolve(),
+        move |_req| {
+            let value = dimensions_clone.clone();
+            async move {
+                match JsonResolution::serialize(SerializedDimensions::from_dimensions(
+                    value.clone(),
+                )) {
+                    Ok(serialized) => serialized.resolve(),
+                    Err(err_r) => err_r.resolve(),
+                }
             }
-        }),
+        },
     )
     .await;
 
@@ -129,11 +124,15 @@ async fn route_app(
         "/stream",
         async_web::web::Method::POST,
         None,
-        resolve!(_req, moves[broad_tx_clone], {
+        move |_req| { 
+            
+            let broad_tx_clone = broad_tx_clone.clone();
+
+            async move {
             let rx = broad_tx_clone.subscribe();
 
             StreamedResolution::from_receiver(rx).resolve()
-        }),
+        }},
     )
     .await;
 }
