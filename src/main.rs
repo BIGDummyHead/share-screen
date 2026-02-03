@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let server_socket = format!("{host_address:?}:80");
 
     //create the web app for sending data...
-    let mut app = App::bind(100, &server_socket).await?;
+    let mut app = App::bind(&server_socket).await?;
 
     route_app(
         &mut app,
@@ -74,7 +74,7 @@ async fn route_app(
     dimensions: Arc<win_video::devices::Dimensions>,
 ) -> () {
     //home page for serving the streamables
-    app.add_or_change_route("/", async_web::web::Method::GET, None, |_req| async move {
+    app.add_or_change_route("/", async_web::web::Method::GET, None, |_req, _res| async move {
         FileResolution::new("content/stream.html").resolve()
     })
     .await
@@ -84,7 +84,7 @@ async fn route_app(
         "/content/{file}",
         async_web::web::Method::GET,
         None,
-        |req| async move {
+        |req, _res| async move {
             let file = {
                 let req = req.lock().await;
                 let file: &String = req.variables.get("file").unwrap();
@@ -100,11 +100,11 @@ async fn route_app(
     .await;
 
     let dimensions_clone = dimensions.clone();
-    app.add_or_panic(
+    app.add_or_change_route(
         "/stream/dimensions",
         async_web::web::Method::GET,
         None,
-        move |_req| {
+        move |_req, _res| {
             let value = dimensions_clone.clone();
             async move {
                 match JsonResolution::serialize(SerializedDimensions::from_dimensions(
@@ -116,15 +116,15 @@ async fn route_app(
             }
         },
     )
-    .await;
+    .await.expect("route not changed");
 
     let broad_tx_clone = broad_tx.clone();
     //streamed POST for the content of the device
-    app.add_or_panic(
+    app.add_or_change_route(
         "/stream",
         async_web::web::Method::POST,
         None,
-        move |_req| { 
+        move |_req, _res| { 
             
             let broad_tx_clone = broad_tx_clone.clone();
 
@@ -134,7 +134,7 @@ async fn route_app(
             StreamedResolution::from_receiver(rx).resolve()
         }},
     )
-    .await;
+    .await.expect("route not changed");
 }
 
 /// # Spawn Frame Capture

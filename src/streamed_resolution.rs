@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_stream::stream;
-use async_web::web::{Resolution, resolution::get_status_header};
+use async_web::web::Resolution;
 use tokio::sync::{Mutex, broadcast::Receiver};
 
 /// # Streamed Resolution
@@ -22,11 +22,6 @@ impl StreamedResolution {
 }
 
 impl Resolution for StreamedResolution {
-    //return 200 header, no other header is applicable
-    fn get_headers(&self) -> std::pin::Pin<Box<dyn Future<Output = Vec<String>> + Send + '_>> {
-        Box::pin(async move { vec![get_status_header(200)] })
-    }
-
     //get content stream
     fn get_content(&self) -> std::pin::Pin<Box<dyn futures::Stream<Item = Vec<u8>> + Send>> {
         let rx = self.rx.clone();
@@ -44,5 +39,12 @@ impl Resolution for StreamedResolution {
 
     fn resolve(self) -> Box<dyn Resolution + Send + 'static> {
         Box::new(self)
+    }
+
+    //sets 200
+    fn set_headers<'a>(
+        &self,
+        _resolution: &mut tokio::sync::MutexGuard<'a, async_web::web::resolution::Resolve>,
+    ) {
     }
 }
